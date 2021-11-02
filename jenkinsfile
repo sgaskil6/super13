@@ -1,0 +1,41 @@
+# Default from Jenkins Docs
+pipeline {
+  agent any
+  parameters {
+    choice(
+        name: 'Action',
+        choices: "apply\ndestroy",
+        description: 'Apply or Destroy the instance' )
+  }
+  stages {
+    
+    # Where we define the stages of our instance for User to follow along
+    stage('Checkout') {
+        steps {
+            git branch: 'master', credentialsId: 'Jenkins', url: 'git@github.com:sgaskil6/super13.git'
+        }
+    }
+
+    stage('Terraform') {
+      steps {
+        script {
+          if (params.Action == "apply") {
+            sh 'terraform init terraform/static-site'
+            sh 'terraform apply -var "name=hello" -var "group=web" -var "region=us-east-1" -var "profile=sgaskil6" --auto-approve terraform/static-site'
+          } 
+          else {
+            sh 'terraform destroy -var "name=hello" -var "group=web" -var "region=us-east-1" -var "profile=sgaskil6" --auto-approve terraform/static-site'
+          }
+        }
+      }
+    }
+
+    stage('Ansible') {
+      steps {
+        retry(count: 5) {
+          sh 'ansible-playbook -i /etc/ansible/aws_ec2.yml ansible/static-site/site.yml'
+        }
+      }
+    }
+  }
+}
